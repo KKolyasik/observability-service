@@ -17,14 +17,23 @@ func UpdateMetrics(svc MetricsUpdater) http.HandlerFunc {
 		}
 
 		path := strings.TrimPrefix(r.URL.Path, "/update/")
+		path = strings.Trim(path, "/")
+
+		if path == "" {
+			http.NotFound(w, r)
+			return
+		}
+	
 		parts := strings.Split(path, "/")
 
-		if len(parts) < 2 || parts[1] == "" {
-			http.Error(w, "metric name is required", http.StatusNotFound)
+		if len(parts) < 3 {
+			http.NotFound(w, r)
+			return
 		}
 
-		if len(parts) != 3 {
+		if len(parts) > 3 {
 			http.Error(w, "invalid path format, expected /update/{type}/{name}/{value}", http.StatusBadRequest)
+			return
 		}
 
 		metricType, metricName, metricValue := parts[0], parts[1], parts[2]
