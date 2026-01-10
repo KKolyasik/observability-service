@@ -2,48 +2,77 @@ package handler
 
 import (
 	"net/http"
+	"strconv"
 	"strings"
+
+	"github.com/KKolyasik/observability-service/internal/models"
 )
 
-type MetricsUpdater interface {
-	Update(metricType, metricName, metricValue string) error
+type MetricsService interface {
+    UpdateGauge(name string, value float64) error
+    IncCounter(name string, delta int64) error
 }
 
-func UpdateMetrics(svc MetricsUpdater) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "Only method POST is allowed", http.StatusMethodNotAllowed)
-			return
-		}
 
-		path := strings.TrimPrefix(r.URL.Path, "/update/")
-		path = strings.Trim(path, "/")
+func UpdateMetrics(svc MetricsService) http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        if r.Method != http.MethodPost {
+            http.Error(w, "Only method POST is allowed", http.StatusMethodNotAllowed)
+            return
+        }
 
-		if path == "" {
-			http.NotFound(w, r)
-			return
-		}
-	
-		parts := strings.Split(path, "/")
+        path := strings.TrimPrefix(r.URL.Path, "/update/")
+        path = strings.Trim(path, "/")
+        if path == "" {
+            http.NotFound(w, r)
+            return
+        }
 
-		if len(parts) < 3 {
-			http.NotFound(w, r)
-			return
-		}
+        parts := strings.Split(path, "/")
 
-		if len(parts) > 3 {
-			http.Error(w, "invalid path format, expected /update/{type}/{name}/{value}", http.StatusBadRequest)
-			return
-		}
+        if len(parts) < 3 {
+            http.NotFound(w, r)
+            return
+        }
+        if len(parts) > 3 {
+            http.Error(w, "invalid path format, expected /update/{type}/{name}/{value}", http.StatusBadRequest)
+            return
+        }
 
-		metricType, metricName, metricValue := parts[0], parts[1], parts[2]
+        metricType, metricName, raw := parts[0], parts[1], parts[2]
+        if metricName == "" {
+            http.NotFound(w, r)
+            return
+        }
 
-		err := svc.Update(metricType, metricName, metricValue)
+        switch metricType {
+        case models.Gauge:
+            v, err := strconv.ParseFloat(raw, 64)
+            if err != nil {
+                http.Error(w, "invalid gauge value", http.StatusBadRequest)
+                return
+            }
+            if err := svc.UpdateGauge(metricName, v); err != nil {
+                http.Error(w, "failed to store metric", http.StatusInternalServerError)
+                return
+            }
 
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-		}
+        case models.Counter:
+            v, err := strconv.ParseInt(raw, 10, 64)
+            if err != nil {
+                http.Error(w, "invalid counter value", http.StatusBadRequest)
+                return
+            }
+            if err := svc.IncCounter(metricName, v); err != nil {
+                http.Error(w, "failed to store metric", http.StatusInternalServerError)
+                return
+            }
 
-		w.WriteHeader(http.StatusOK)
-	}
+        default:
+            http.Error(w, "unknown metric type (use gauge|counter)", http.StatusBadRequest)
+            return
+        }
+
+        w.WriteHeader(http.StatusOK)
+    }
 }

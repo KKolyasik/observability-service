@@ -1,4 +1,5 @@
-package models
+package storage
+
 
 type MemStorage struct {
 	gauge   map[string]float64

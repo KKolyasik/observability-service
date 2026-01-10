@@ -1,4 +1,4 @@
-package models
+package storage
 
 type MetricsStorage interface {
     GetGauge(name string) (float64, bool)

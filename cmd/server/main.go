@@ -1,22 +1,27 @@
 package main
 
 import (
+	"log"
 	"net/http"
-	"github.com/KKolyasik/observability-service/internal/models"
+	"time"
+
 	"github.com/KKolyasik/observability-service/internal/handler"
 	"github.com/KKolyasik/observability-service/internal/service"
+	"github.com/KKolyasik/observability-service/internal/storage"
 )
 
-
-
 func main() {
-	storage := models.NewMemStorage()
-	svc := service.New(storage)
+	st := storage.NewMemStorage()
+	svc := service.New(st)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/update/", handler.UpdateMetrics(svc))
-	err := http.ListenAndServe("localhost:8080", mux)
-	if err != nil {
-		panic(err)
+
+	srv := &http.Server{
+		Addr:              "localhost:8080",
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
 	}
+
+	log.Fatal(srv.ListenAndServe())
 }

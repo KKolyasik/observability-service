@@ -1,39 +1,25 @@
 package service
 
 import (
-	"strconv"
 	"errors"
 
-	"github.com/KKolyasik/observability-service/internal/models"
+	"github.com/KKolyasik/observability-service/internal/storage"
 )
 
 var ErrUnknownMetricType = errors.New("unknown metric type")
 
 type MetricsService struct {
-	st models.MetricsStorage
+	st storage.MetricsStorage
 }
 
-func New(st models.MetricsStorage) *MetricsService {
+func New(st storage.MetricsStorage) *MetricsService {
 	return &MetricsService{st: st}
 }
 
-func (m *MetricsService) Update(metricType, metricName, metricValue string) error {
-	switch metricType {
-	case "gauge":
-		if val, err := strconv.ParseFloat(metricValue, 64); err != nil {
-			return err
-		} else {
-			m.st.SetGauge(metricName, val)
-			return nil
-		}
-	case "counter":
-		if val, err := strconv.ParseInt(metricValue, 10, 64); err != nil {
-			return err
-		} else {
-			m.st.IncCounter(metricName, val)
-			return nil
-		}
-	default:
-		return ErrUnknownMetricType
-	}
+func (s *MetricsService) UpdateGauge(name string, value float64) error {
+	return s.st.SetGauge(name, value)
+}
+
+func (s *MetricsService) IncCounter(name string, delta int64) error {
+	return s.st.IncCounter(name, delta)
 }
